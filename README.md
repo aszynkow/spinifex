@@ -18,8 +18,7 @@
   <a href="#live-demo">Live Demo</a> ·
   <a href="#core-components">Components</a> ·
   <a href="#architecture-at-a-glance">Architecture</a> ·
-  <a href="#self-hosted-installation">Installation</a> ·
-  <a href="https://docs.mulgadc.com">Docs</a>
+  <a href="#self-hosted-installation">Installation</a>
 </p>
 
 ---
