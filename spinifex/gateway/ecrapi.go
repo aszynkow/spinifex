@@ -36,8 +36,8 @@ var ecrInlineActions = map[string]ecrInlineHandler{
 // ecrActionFromTarget extracts the action suffix from an X-Amz-Target header.
 // Any "<Prefix>.<Action>" or bare "<Action>" form is accepted.
 func ecrActionFromTarget(target string) string {
-	if i := strings.LastIndex(target, "."); i >= 0 {
-		return target[i+1:]
+	if _, after, ok := strings.CutLast(target, "."); ok {
+		return after
 	}
 	return target
 }
