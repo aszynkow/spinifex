@@ -28,7 +28,7 @@ Spinifex, built by [Mulga](https://mulgadc.com), recreates the AWS services your
 
 - **Your AWS tooling, unchanged.** The AWS CLI, SDKs, and Terraform work as they are.
 - **Full control of the stack.** Your hardware, data, and keys, with no external control plane, running through disconnection.
-- **Open core under AGPL-3.0.** Auditable, and yours to keep.
+- **Open core under AGPL-3.0.** Auditable, yours to keep, with no lock-in.
 
 You change *where* your software runs, not *what* it is.
 
@@ -49,23 +49,29 @@ aws s3 mb s3://my-bucket
 
 For Terraform, start from the [example workbooks](https://docs.mulgadc.com/docs/nginx-webserver).
 
+## Why Not LocalStack or Floci?
+
+[LocalStack](https://github.com/localstack/localstack) and [Floci](https://github.com/floci-io/floci) are emulators for local development and CI testing. An emulator returns a plausible response; Spinifex boots the machine. A call launches a real KVM guest, attaches a replicated Viperblock volume, or writes an erasure-coded object into Predastore, so Spinifex can run your production workloads on hardware you own. Test against an emulator, then run in production on Spinifex.
+
 ## Services
+
+The platform serves **392 AWS API operations** across the services below. See exactly which ones in the [coverage report](https://docs.mulgadc.com/coverage).
 
 | Service | What it is | Built on | Status |
 | --- | --- | --- | --- |
-| **EC2** | Compute | QEMU/KVM, with GPU passthrough | Available |
-| **EBS** | Block storage | [Viperblock](https://github.com/mulgadc/viperblock) | Available |
-| **S3** | Object storage | [Predastore](https://github.com/mulgadc/predastore) | Available |
-| **VPC** | Networking | OVN | Available |
+| **EC2** | Compute | QEMU/KVM, with spot instances and GPU passthrough | Available |
+| **EBS** | Block storage | [Viperblock](https://github.com/mulgadc/viperblock): replicated, with a WAL on local NVMe | Available |
+| **S3** | Object storage | [Predastore](https://github.com/mulgadc/predastore): Reed-Solomon erasure coding | Available |
+| **VPC** | Networking | OVN, with security groups | Available |
 | **IAM** | Identity & auth | SigV4 across every service | Available |
-| **ALB / NLB** | Load balancers | HAProxy (L7), nginx `stream` (L4) | Available |
-| **EKS** | Kubernetes | k3s | Available |
-| **ECR** | Container registry | Predastore | Available |
+| **ALB / NLB** | Load balancers | HAProxy (L7), nginx `stream` (L4), with ACM certificates | Available |
+| **EKS** | Kubernetes | k3s, with HA control planes and managed node groups | Available |
+| **ECR** | Container registry | Predastore, deduplicated per account | Available |
 | **ECS** | Container service | Spinifex instances | Available |
-| **RDS** | Databases | PostgreSQL, MariaDB | Available |
+| **RDS** | Databases | PostgreSQL and MariaDB, with automated backups | Available |
 | **Bedrock** | AI deployment | | Q4 2026 |
 
-Roadmap services ship under the same AWS API surface, so code written for AWS today works the moment they land. [Track what's shipped in the release notes](https://github.com/mulgadc/spinifex/releases), or see which API operations each service supports in the [coverage report](https://docs.mulgadc.com/coverage).
+Roadmap services ship under the same AWS API surface, so code written for AWS today works the moment they land. [Track what's shipped in the release notes](https://github.com/mulgadc/spinifex/releases).
 
 ## Deploy Anywhere
 
