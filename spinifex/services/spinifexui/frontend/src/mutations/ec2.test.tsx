@@ -1,3 +1,4 @@
+import { DeleteSecurityGroupCommand } from "@aws-sdk/client-ec2"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
@@ -370,6 +371,91 @@ describe("useCreateInstance", () => {
       expect(result.current.isSuccess).toBeTruthy()
     })
     expect(mockSend.mock.calls[0]?.[0].input.LaunchTemplate).toBeUndefined()
+  })
+})
+
+describe("useCreateInstance in create-group mode", () => {
+  const createModeParams = {
+    imageId: "ami-123",
+    instanceType: "t2.micro",
+    count: 1,
+    securityGroupMode: "create" as const,
+    newSgName: "launch-wizard-1",
+    allowSsh: true,
+  }
+
+  it("deletes the new group when RunInstances fails", async () => {
+    createQueryClient()
+    const launchError = new Error("no capacity")
+    mockSend
+      .mockResolvedValueOnce({ GroupId: "sg-new" })
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(launchError)
+    const { result } = renderHook(() => useCreateInstance(), { wrapper })
+
+    result.current.mutate(createModeParams)
+
+    await waitFor(() => {
+      expect(result.current.error).toBe(launchError)
+    })
+    expect(mockSend).toHaveBeenCalledTimes(4)
+    expect(mockSend.mock.calls[3]?.[0]).toBeInstanceOf(
+      DeleteSecurityGroupCommand,
+    )
+    expect(mockSend.mock.calls[3]?.[0].input).toStrictEqual({
+      GroupId: "sg-new",
+    })
+  })
+
+  it("deletes the new group when authorizing its ingress fails", async () => {
+    createQueryClient()
+    mockSend
+      .mockResolvedValueOnce({ GroupId: "sg-new" })
+      .mockRejectedValueOnce(new Error("bad rule"))
+    const { result } = renderHook(() => useCreateInstance(), { wrapper })
+
+    result.current.mutate(createModeParams)
+
+    await waitFor(() => {
+      expect(result.current.isError).toBeTruthy()
+    })
+    expect(mockSend).toHaveBeenCalledTimes(3)
+    expect(mockSend.mock.calls[2]?.[0]).toBeInstanceOf(
+      DeleteSecurityGroupCommand,
+    )
+  })
+
+  it("reports the launch error when the cleanup delete also fails", async () => {
+    createQueryClient()
+    const launchError = new Error("no capacity")
+    mockSend
+      .mockResolvedValueOnce({ GroupId: "sg-new" })
+      .mockResolvedValueOnce({})
+      .mockRejectedValueOnce(launchError)
+      .mockRejectedValueOnce(new Error("delete failed"))
+    const { result } = renderHook(() => useCreateInstance(), { wrapper })
+
+    result.current.mutate(createModeParams)
+
+    await waitFor(() => {
+      expect(result.current.error).toBe(launchError)
+    })
+  })
+
+  it("keeps the new group when the launch succeeds", async () => {
+    createQueryClient()
+    mockSend.mockResolvedValueOnce({ GroupId: "sg-new" })
+    const { result } = renderHook(() => useCreateInstance(), { wrapper })
+
+    result.current.mutate(createModeParams)
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBeTruthy()
+    })
+    expect(mockSend).toHaveBeenCalledTimes(3)
+    expect(mockSend.mock.calls[2]?.[0].input.SecurityGroupIds).toStrictEqual([
+      "sg-new",
+    ])
   })
 })
 

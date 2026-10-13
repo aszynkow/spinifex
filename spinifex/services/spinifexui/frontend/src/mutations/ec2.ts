@@ -160,36 +160,31 @@ export function useCreateInstance() {
   return useMutation({
     mutationFn: async (params: CreateInstanceParams) => {
       const client = getEc2Client()
-      const securityGroupIds = await resolveSecurityGroupIds(client, params)
-      const command = new RunInstancesCommand({
-        ImageId: params.imageId || undefined,
-        InstanceType: params.instanceType
-          ? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- AWS SDK expects _InstanceType enum
-            (params.instanceType as _InstanceType)
-          : undefined,
-        KeyName: params.keyName || undefined,
-        MinCount: params.count,
-        MaxCount: params.count,
-        SubnetId: params.subnetId || undefined,
-        SecurityGroupIds:
-          securityGroupIds.length > 0 ? securityGroupIds : undefined,
-        Placement: params.placementGroupName
-          ? { GroupName: params.placementGroupName }
-          : undefined,
-        BlockDeviceMappings: buildBlockDeviceMappings(params),
-        // When a template is chosen the backend expands it, then the direct
-        // params above overlay it (direct params win, matching AWS).
-        LaunchTemplate: params.launchTemplateId
-          ? {
-              LaunchTemplateId: params.launchTemplateId,
-              Version: params.launchTemplateVersion || "$Default",
-            }
-          : undefined,
-      })
-      return await client.send(command)
+      // Only the explicit create path provisions an SG; existing / undefined
+      // modes pass through the selected IDs (none by default).
+      if (params.securityGroupMode !== "create") {
+        return await runInstances(client, params, params.securityGroupIds ?? [])
+      }
+      const groupId = await createLaunchWizardGroup(client, params)
+      try {
+        await authorizeLaunchWizardIngress(client, groupId, params)
+        return await runInstances(client, params, [groupId])
+      } catch (error) {
+        // Delete the group so a retry can reuse its name.
+        try {
+          await client.send(
+            new DeleteSecurityGroupCommand({ GroupId: groupId }),
+          )
+        } catch {
+          // The launch error is still the one worth showing.
+        }
+        throw error
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["ec2", "instances"] })
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({
         queryKey: ["ec2", "securityGroups"],
       })
@@ -197,20 +192,45 @@ export function useCreateInstance() {
   })
 }
 
-// resolveSecurityGroupIds returns the SG IDs to attach to the new instance.
-// In "existing" mode it passes the selected IDs through; in "create" mode it
-// creates a launch-wizard SG, authorizes the ticked inbound rules, and returns
-// the new group's ID.
-async function resolveSecurityGroupIds(
+async function runInstances(
   client: ReturnType<typeof getEc2Client>,
   params: CreateInstanceParams,
-): Promise<string[]> {
-  // Only the explicit create path provisions an SG; existing / undefined modes
-  // pass through the selected IDs (none by default), preserving prior behaviour.
-  if (params.securityGroupMode !== "create") {
-    return params.securityGroupIds ?? []
-  }
+  securityGroupIds: string[],
+) {
+  const command = new RunInstancesCommand({
+    ImageId: params.imageId || undefined,
+    InstanceType: params.instanceType
+      ? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- AWS SDK expects _InstanceType enum
+        (params.instanceType as _InstanceType)
+      : undefined,
+    KeyName: params.keyName || undefined,
+    MinCount: params.count,
+    MaxCount: params.count,
+    SubnetId: params.subnetId || undefined,
+    SecurityGroupIds:
+      securityGroupIds.length > 0 ? securityGroupIds : undefined,
+    Placement: params.placementGroupName
+      ? { GroupName: params.placementGroupName }
+      : undefined,
+    BlockDeviceMappings: buildBlockDeviceMappings(params),
+    // When a template is chosen the backend expands it, then the direct
+    // params above overlay it (direct params win, matching AWS).
+    LaunchTemplate: params.launchTemplateId
+      ? {
+          LaunchTemplateId: params.launchTemplateId,
+          Version: params.launchTemplateVersion || "$Default",
+        }
+      : undefined,
+  })
+  return await client.send(command)
+}
 
+// createLaunchWizardGroup creates the launch-wizard SG for "create" mode and
+// returns its ID.
+async function createLaunchWizardGroup(
+  client: ReturnType<typeof getEc2Client>,
+  params: CreateInstanceParams,
+): Promise<string> {
   const sg = await client.send(
     new CreateSecurityGroupCommand({
       GroupName: params.newSgName,
@@ -218,35 +238,41 @@ async function resolveSecurityGroupIds(
       VpcId: params.resolvedVpcId,
     }),
   )
-  const groupId = sg.GroupId
-  if (!groupId) {
+  if (!sg.GroupId) {
     throw new Error("Security group was created but no ID was returned")
   }
+  return sg.GroupId
+}
 
+// authorizeLaunchWizardIngress opens the ticked inbound ports on the new group.
+async function authorizeLaunchWizardIngress(
+  client: ReturnType<typeof getEc2Client>,
+  groupId: string,
+  params: CreateInstanceParams,
+): Promise<void> {
   const ports: number[] = [
     ...(params.allowSsh ? [22] : []),
     ...(params.allowHttp ? [80] : []),
     ...(params.allowHttps ? [443] : []),
   ]
-  if (ports.length > 0) {
-    const cidrIp =
-      params.ruleSource === "custom" && params.customCidr
-        ? params.customCidr
-        : "0.0.0.0/0"
-    await client.send(
-      new AuthorizeSecurityGroupIngressCommand({
-        GroupId: groupId,
-        IpPermissions: ports.map((port) => ({
-          IpProtocol: "tcp",
-          FromPort: port,
-          ToPort: port,
-          IpRanges: [{ CidrIp: cidrIp }],
-        })),
-      }),
-    )
+  if (ports.length === 0) {
+    return
   }
-
-  return [groupId]
+  const cidrIp =
+    params.ruleSource === "custom" && params.customCidr
+      ? params.customCidr
+      : "0.0.0.0/0"
+  await client.send(
+    new AuthorizeSecurityGroupIngressCommand({
+      GroupId: groupId,
+      IpPermissions: ports.map((port) => ({
+        IpProtocol: "tcp",
+        FromPort: port,
+        ToPort: port,
+        IpRanges: [{ CidrIp: cidrIp }],
+      })),
+    }),
+  )
 }
 
 function buildBlockDeviceMappings(params: CreateInstanceParams) {
