@@ -448,7 +448,15 @@ export function useDeleteLaunchTemplateVersions() {
         LaunchTemplateId: params.launchTemplateId,
         Versions: params.versions,
       })
-      return await getEc2Client().send(command)
+      const result = await getEc2Client().send(command)
+      // A failed delete comes back as HTTP 200 with the version listed here.
+      const failed = result.UnsuccessfullyDeletedLaunchTemplateVersions?.[0]
+      if (failed) {
+        throw new Error(
+          `Version ${failed.VersionNumber} was not deleted: ${failed.ResponseError?.Message ?? failed.ResponseError?.Code ?? "unknown error"}`,
+        )
+      }
+      return result
     },
     onSuccess: (_data, params) => {
       void queryClient.invalidateQueries({

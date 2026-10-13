@@ -646,6 +646,34 @@ describe("useDeleteLaunchTemplateVersions", () => {
       Versions: ["2", "3"],
     })
   })
+
+  it("fails when a version comes back in the unsuccessful list", async () => {
+    createQueryClient()
+    mockSend.mockResolvedValueOnce({
+      SuccessfullyDeletedLaunchTemplateVersions: [],
+      UnsuccessfullyDeletedLaunchTemplateVersions: [
+        {
+          VersionNumber: 2,
+          ResponseError: {
+            Code: "unexpectedError",
+            Message: "storage unavailable",
+          },
+        },
+      ],
+    })
+    const { result } = renderHook(() => useDeleteLaunchTemplateVersions(), {
+      wrapper,
+    })
+
+    result.current.mutate({ launchTemplateId: "lt-1", versions: ["2"] })
+
+    await waitFor(() => {
+      expect(result.current.isError).toBeTruthy()
+    })
+    expect(result.current.error?.message).toBe(
+      "Version 2 was not deleted: storage unavailable",
+    )
+  })
 })
 
 describe("useDeleteLaunchTemplate", () => {
