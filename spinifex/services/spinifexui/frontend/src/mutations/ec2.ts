@@ -65,7 +65,7 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { getEc2Client } from "@/lib/awsClient"
-import { calculateSubnetCidrs } from "@/lib/subnet-calculator"
+import { resolveSubnetCidrs } from "@/lib/subnet-calculator"
 import { ec2KeyPairsQueryOptions } from "@/queries/ec2"
 import type {
   AttachVolumeFormData,
@@ -1392,6 +1392,20 @@ export interface WizardResult {
   failedStep?: string
 }
 
+// Waits for every task before rethrowing the first failure, so a failed
+// subnet does not hide the ones still being created.
+async function settleAll<T>(tasks: Promise<T>[]): Promise<T[]> {
+  const results = await Promise.allSettled(tasks)
+  const values: T[] = []
+  for (const result of results) {
+    if (result.status === "rejected") {
+      throw result.reason
+    }
+    values.push(result.value)
+  }
+  return values
+}
+
 export function useCreateVpcWizard() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -1433,33 +1447,28 @@ export function useCreateVpcWizard() {
           return { vpcId, created }
         }
 
-        // Compute subnet CIDRs (use custom values if provided, else auto-calculate)
-        const defaults = calculateSubnetCidrs(
+        const plan = resolveSubnetCidrs(
           params.cidrBlock,
           params.publicSubnetCount,
           params.privateSubnetCount,
+          {
+            publicCidrs: params.publicSubnetCidrs,
+            privateCidrs: params.privateSubnetCidrs,
+          },
         )
-        const publicCidrs =
-          params.publicSubnetCidrs.length > 0
-            ? params.publicSubnetCidrs
-            : defaults.publicSubnets.map((s) => s.cidr)
-        const privateCidrs =
-          params.privateSubnetCidrs.length > 0
-            ? params.privateSubnetCidrs
-            : defaults.privateSubnets.map((s) => s.cidr)
 
         // Step 2: Create public subnets. Each subnet's CIDR is fixed up front, so
         // the creations are independent — run them concurrently. Each task records
-        // its subnet in `created` before the attribute call so a later failure
-        // still rolls back what was made.
+        // its subnet in `created` before the attribute call so the failure report
+        // lists every subnet that was made. Nothing is rolled back.
         currentStep = "creating public subnets"
-        const publicSubnetIds = await Promise.all(
-          Array.from({ length: params.publicSubnetCount }, async (_, i) => {
+        const publicSubnetIds = await settleAll(
+          plan.publicSubnets.map(async ({ cidr }, i) => {
             const name = prefix ? `${prefix}-subnet-public-${i + 1}` : undefined
             const result = await client.send(
               new CreateSubnetCommand({
                 VpcId: vpcId,
-                CidrBlock: publicCidrs[i],
+                CidrBlock: cidr,
                 TagSpecifications: buildTagSpec(
                   ResourceType.subnet,
                   name,
@@ -1490,15 +1499,15 @@ export function useCreateVpcWizard() {
 
         // Step 3: Create private subnets (independent CIDRs — concurrent).
         currentStep = "creating private subnets"
-        const privateSubnetIds = await Promise.all(
-          Array.from({ length: params.privateSubnetCount }, async (_, i) => {
+        const privateSubnetIds = await settleAll(
+          plan.privateSubnets.map(async ({ cidr }, i) => {
             const name = prefix
               ? `${prefix}-subnet-private-${i + 1}`
               : undefined
             const result = await client.send(
               new CreateSubnetCommand({
                 VpcId: vpcId,
-                CidrBlock: privateCidrs[i],
+                CidrBlock: cidr,
                 TagSpecifications: buildTagSpec(
                   ResourceType.subnet,
                   name,

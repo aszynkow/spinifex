@@ -56,6 +56,26 @@ import {
 
 let queryClient: QueryClient
 
+/* oxlint-disable promise/avoid-new -- holding one SDK call open is the only way to order it after a sibling's failure */
+interface HeldResponse<T> {
+  promise: Promise<T>
+  release: (value: T) => void
+}
+
+function heldResponse<T>(): HeldResponse<T> {
+  let release!: (value: T) => void
+  const promise = new Promise<T>((resolve) => {
+    release = resolve
+  })
+  return { promise, release }
+}
+
+const settleTimers = async () =>
+  await new Promise((resolve) => {
+    setTimeout(resolve, 10)
+  })
+/* oxlint-enable promise/avoid-new */
+
 function wrapper({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -1585,6 +1605,67 @@ describe("useCreateVpcWizard", () => {
     )
     expect(result.current.data?.vpcId).toBe("vpc-111")
     expect(result.current.data?.created).toHaveLength(2)
+  })
+
+  it("reports every created subnet when a parallel create fails", async () => {
+    createQueryClient()
+    const secondPrivate = heldResponse<{ Subnet: { SubnetId: string } }>()
+    mockSend
+      .mockResolvedValueOnce({ Vpc: { VpcId: "vpc-111" } })
+      .mockRejectedValueOnce(new Error("CIDR conflict"))
+      .mockImplementationOnce(async () => await secondPrivate.promise)
+
+    const { result } = renderHook(() => useCreateVpcWizard(), { wrapper })
+    let settled = false
+    void result.current
+      .mutateAsync({
+        ...baseParams,
+        mode: "vpc-and-more",
+        publicSubnetCount: 0,
+        privateSubnetCount: 2,
+      })
+      .then(() => {
+        settled = true
+      })
+
+    await waitFor(() => {
+      expect(mockSend).toHaveBeenCalledTimes(3)
+    })
+    await settleTimers()
+    expect(settled).toBeFalsy()
+
+    secondPrivate.release({ Subnet: { SubnetId: "subnet-priv-2" } })
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBeTruthy()
+    })
+    expect(result.current.data?.error?.message).toBe("CIDR conflict")
+    expect(result.current.data?.created).toContainEqual({
+      type: "Private Subnet",
+      id: "subnet-priv-2",
+    })
+  })
+
+  it("fills subnets beyond the custom CIDR list with defaults", async () => {
+    createQueryClient()
+    mockSend
+      .mockResolvedValueOnce({ Vpc: { VpcId: "vpc-111" } })
+      .mockResolvedValueOnce({ Subnet: { SubnetId: "subnet-priv-1" } })
+      .mockResolvedValueOnce({ Subnet: { SubnetId: "subnet-priv-2" } })
+
+    const { result } = renderHook(() => useCreateVpcWizard(), { wrapper })
+    result.current.mutate({
+      ...baseParams,
+      mode: "vpc-and-more",
+      publicSubnetCount: 0,
+      privateSubnetCount: 2,
+      privateSubnetCidrs: ["10.0.200.0/24"],
+    })
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBeTruthy()
+    })
+    expect(mockSend.mock.calls[1]?.[0].input.CidrBlock).toBe("10.0.200.0/24")
+    expect(mockSend.mock.calls[2]?.[0].input.CidrBlock).toBe("10.0.144.0/20")
   })
 
   it("returns error when VPC creation fails", async () => {

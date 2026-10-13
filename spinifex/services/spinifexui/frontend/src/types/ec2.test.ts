@@ -872,6 +872,49 @@ describe("createVpcWizardSchema", () => {
     expect(result.success).toBeTruthy()
   })
 
+  it("rejects a default plan that overruns a small VPC", () => {
+    const result = createVpcWizardSchema.safeParse({
+      ...validBase,
+      mode: "vpc-and-more",
+      cidrBlock: "10.0.0.0/27",
+      publicSubnetCount: 1,
+      privateSubnetCount: 2,
+    })
+    if (result.success) {
+      throw new Error("expected validation to fail")
+    }
+    expect(result.error.issues.map((i) => i.path)).toContainEqual([
+      "privateSubnetCidrs",
+      1,
+    ])
+  })
+
+  it("rejects a custom CIDR that overlaps a default one", () => {
+    const result = createVpcWizardSchema.safeParse({
+      ...validBase,
+      mode: "vpc-and-more",
+      publicSubnetCount: 1,
+      privateSubnetCount: 1,
+      privateSubnetCidrs: ["10.0.0.0/20"],
+    })
+    if (result.success) {
+      throw new Error("expected validation to fail")
+    }
+    const issue = result.error.issues.find((i) => i.message.includes("overlap"))
+    expect(issue?.path).toStrictEqual(["privateSubnetCidrs", 0])
+  })
+
+  it("accepts more subnets than custom CIDRs by using defaults", () => {
+    const result = createVpcWizardSchema.safeParse({
+      ...validBase,
+      mode: "vpc-and-more",
+      publicSubnetCount: 1,
+      privateSubnetCount: 2,
+      privateSubnetCidrs: ["10.0.200.0/24"],
+    })
+    expect(result.success).toBeTruthy()
+  })
+
   it("skips subnet CIDR validation in vpc-only mode", () => {
     const result = createVpcWizardSchema.safeParse({
       ...validBase,
