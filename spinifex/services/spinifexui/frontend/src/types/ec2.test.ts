@@ -169,6 +169,39 @@ describe("createInstanceSchema", () => {
     })
     expect(result.success).toBeTruthy()
   })
+
+  const customSource = {
+    imageId: "ami-123",
+    instanceType: "t2.micro",
+    keyName: "my-key",
+    count: 1,
+    securityGroupMode: "create",
+    newSgName: "launch-wizard-1",
+    ruleSource: "custom",
+  } as const
+
+  // AWS accepts any prefix from /0 to /32 as a security-group rule source.
+  it.each(["203.0.113.5/32", "10.0.0.0/8", "0.0.0.0/0"])(
+    "accepts custom SSH source %s",
+    (customCidr) => {
+      const result = createInstanceSchema.safeParse({
+        ...customSource,
+        customCidr,
+      })
+      expect(result.success).toBeTruthy()
+    },
+  )
+
+  it.each(["203.0.113.5/33", "203.0.113.5", "300.0.0.0/8"])(
+    "rejects custom SSH source %s",
+    (customCidr) => {
+      const result = createInstanceSchema.safeParse({
+        ...customSource,
+        customCidr,
+      })
+      expect(result.success).toBeFalsy()
+    },
+  )
 })
 
 describe("launchTemplateFormSchema", () => {

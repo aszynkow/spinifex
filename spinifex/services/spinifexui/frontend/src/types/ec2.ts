@@ -109,7 +109,7 @@ export const createInstanceSchema = z
     }
     if (
       data.ruleSource === "custom" &&
-      (!data.customCidr || !isValidCidr(data.customCidr))
+      (!data.customCidr || !isValidCidr(data.customCidr, 0, 32))
     ) {
       ctx.addIssue({
         code: "custom",
