@@ -1,10 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
-import { redirect } from "@tanstack/react-router"
 
 import { PageHeading } from "@/components/page-heading"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { useAdmin } from "@/contexts/admin-context"
 import {
   adminStorageStatusQueryOptions,
   type BlobNode,
@@ -12,16 +10,10 @@ import {
 } from "@/queries/admin"
 
 export function ServiceMetricsPage() {
-  const { isAdmin } = useAdmin()
   const { data } = useQuery({
     ...adminStorageStatusQueryOptions,
-    enabled: isAdmin,
     refetchInterval: 5000,
   })
-
-  if (!isAdmin) {
-    throw redirect({ to: "/" })
-  }
 
   const encoding = data?.encoding
   const metaNodes = data?.meta_nodes ?? []
