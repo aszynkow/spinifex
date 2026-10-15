@@ -58,5 +58,14 @@ jobs:
       - name: Build Frontend
         run: pnpm build
 
+      # spx embeds the committed dist/, so a bundle that differs from a clean
+      # build of this source would ship JavaScript CI never built. Porcelain
+      # rather than git diff, so added and deleted chunks count too.
       - name: Check for generated file drift
-        run: git diff --exit-code -- src/routeTree.gen.ts src/lib/cn-tables.gen.ts
+        run: |
+          drift=$(git status --porcelain -- src/routeTree.gen.ts src/lib/cn-tables.gen.ts dist)
+          if [ -n "$drift" ]; then
+            echo "::error::Generated files differ from a clean build. Run pnpm build and commit the result."
+            echo "$drift"
+            exit 1
+          fi
