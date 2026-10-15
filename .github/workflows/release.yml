@@ -16,28 +16,36 @@ jobs:
         with:
           path: spinifex
 
+      - name: Resolve sibling release tags from go.mod
+        id: siblings
+        run: bash spinifex/.github/resolve-release-sibling-refs.sh spinifex/go.mod
+
       - name: Checkout Predastore
         uses: actions/checkout@v7
         with:
           repository: mulgadc/predastore
+          ref: ${{ steps.siblings.outputs.predastore }}
           path: predastore
 
       - name: Checkout Viperblock
         uses: actions/checkout@v7
         with:
           repository: mulgadc/viperblock
+          ref: ${{ steps.siblings.outputs.viperblock }}
           path: viperblock
 
       - name: Checkout Northstar
         uses: actions/checkout@v7
         with:
           repository: mulgadc/northstar
+          ref: ${{ steps.siblings.outputs.northstar }}
           path: northstar
 
       - name: Checkout Bluebottle
         uses: actions/checkout@v7
         with:
           repository: mulgadc/bluebottle
+          ref: ${{ steps.siblings.outputs.bluebottle }}
           path: bluebottle
 
       - name: Set up Docker Buildx
@@ -73,28 +81,36 @@ jobs:
         with:
           path: spinifex
 
+      - name: Resolve sibling release tags from go.mod
+        id: siblings
+        run: bash spinifex/.github/resolve-release-sibling-refs.sh spinifex/go.mod
+
       - name: Checkout Predastore
         uses: actions/checkout@v7
         with:
           repository: mulgadc/predastore
+          ref: ${{ steps.siblings.outputs.predastore }}
           path: predastore
 
       - name: Checkout Viperblock
         uses: actions/checkout@v7
         with:
           repository: mulgadc/viperblock
+          ref: ${{ steps.siblings.outputs.viperblock }}
           path: viperblock
 
       - name: Checkout Northstar
         uses: actions/checkout@v7
         with:
           repository: mulgadc/northstar
+          ref: ${{ steps.siblings.outputs.northstar }}
           path: northstar
 
       - name: Checkout Bluebottle
         uses: actions/checkout@v7
         with:
           repository: mulgadc/bluebottle
+          ref: ${{ steps.siblings.outputs.bluebottle }}
           path: bluebottle
 
       - name: Set up Docker Buildx
@@ -307,28 +323,36 @@ jobs:
           path: spinifex
           ref: ${{ github.ref }}
 
+      - name: Resolve sibling release tags from go.mod
+        id: siblings
+        run: bash spinifex/.github/resolve-release-sibling-refs.sh spinifex/go.mod
+
       - name: Checkout Predastore
         uses: actions/checkout@v7
         with:
           repository: mulgadc/predastore
+          ref: ${{ steps.siblings.outputs.predastore }}
           path: predastore
 
       - name: Checkout Viperblock
         uses: actions/checkout@v7
         with:
           repository: mulgadc/viperblock
+          ref: ${{ steps.siblings.outputs.viperblock }}
           path: viperblock
 
       - name: Checkout Northstar
         uses: actions/checkout@v7
         with:
           repository: mulgadc/northstar
+          ref: ${{ steps.siblings.outputs.northstar }}
           path: northstar
 
       - name: Checkout Bluebottle
         uses: actions/checkout@v7
         with:
           repository: mulgadc/bluebottle
+          ref: ${{ steps.siblings.outputs.bluebottle }}
           path: bluebottle
 
       - name: Checkout Mulga iso-builder
