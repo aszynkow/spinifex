@@ -11,10 +11,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/mulgadc/spinifex/spinifex/awserrors"
-	gateway_ec2_instance "github.com/mulgadc/spinifex/spinifex/gateway/ec2/instance"
-	"github.com/mulgadc/spinifex/spinifex/testutil"
-	"github.com/mulgadc/spinifex/spinifex/utils"
+	"github.com/mulgadc/spinifex/internal/testkit"
+	ec2instanceapi "github.com/mulgadc/spinifex/spinifex/domains/ec2/awsapi/instance"
+	"github.com/mulgadc/spinifex/spinifex/foundation/aws/errors"
+	"github.com/mulgadc/spinifex/spinifex/foundation/messaging/nats"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -25,8 +25,8 @@ var inventoryNodes = []string{"node-1", "node-2"}
 // testInventoryReaper builds the instance reaper for a two-node cluster, with
 // a short fan-out deadline so a silent node costs the test little.
 func testInventoryReaper(nc *nats.Conn) *instanceReaper {
-	return &instanceReaper{nc: nc, nodeIDs: inventoryNodes, describeOpts: []gateway_ec2_instance.DescribeOption{
-		gateway_ec2_instance.WithFanoutTimeout(300 * time.Millisecond),
+	return &instanceReaper{nc: nc, nodeIDs: inventoryNodes, describeOpts: []ec2instanceapi.DescribeOption{
+		ec2instanceapi.WithFanoutTimeout(300 * time.Millisecond),
 	}}
 }
 
@@ -38,7 +38,7 @@ func answerAsNode(t *testing.T, nc *nats.Conn, subject, nodeID string, payload [
 		reply := nats.NewMsg(msg.Reply)
 		reply.Data = payload
 		if nodeID != "" {
-			reply.Header.Set(utils.NodeIDHeader, nodeID)
+			reply.Header.Set(natsmsg.NodeIDHeader, nodeID)
 		}
 		_ = msg.RespondMsg(reply)
 	})
@@ -108,7 +108,7 @@ func TestInstanceReaperFailsClosedWhenANodeAnswersWithAnError(t *testing.T) {
 	_, nc := testutil.StartTestNATS(t)
 	emptyInstanceBuckets(t, nc)
 	answerAsNode(t, nc, "ec2.DescribeInstances", "node-1", describeOutput(t))
-	answerAsNode(t, nc, "ec2.DescribeInstances", "node-2", utils.GenerateErrorPayload(awserrors.ErrorServerInternal))
+	answerAsNode(t, nc, "ec2.DescribeInstances", "node-2", awserrors.GenerateErrorPayload(awserrors.ErrorServerInternal))
 	require.NoError(t, nc.Flush())
 
 	_, err := testInventoryReaper(nc).List(testCtx(t), testAccountID)
@@ -135,7 +135,7 @@ func TestInstanceReaperFailsClosedWhenOneNodeAnswersTwice(t *testing.T) {
 // hides them as surely as a silent node hides running ones.
 func TestInstanceReaperFailsClosedWhenTheStoppedBucketFails(t *testing.T) {
 	_, nc := testutil.StartTestNATS(t)
-	answerAsNode(t, nc, "ec2.DescribeStoppedInstances", "", utils.GenerateErrorPayload(awserrors.ErrorServerInternal))
+	answerAsNode(t, nc, "ec2.DescribeStoppedInstances", "", awserrors.GenerateErrorPayload(awserrors.ErrorServerInternal))
 	answerAsNode(t, nc, "ec2.DescribeTerminatedInstances", "", describeOutput(t))
 	answerAsNode(t, nc, "ec2.DescribeInstances", "node-1", describeOutput(t))
 	answerAsNode(t, nc, "ec2.DescribeInstances", "node-2", describeOutput(t))

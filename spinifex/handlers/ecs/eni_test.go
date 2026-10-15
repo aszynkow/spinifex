@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/mulgadc/spinifex/spinifex/domains/ecs/taskdefinition"
+	"github.com/mulgadc/spinifex/spinifex/foundation/aws/errors"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/mulgadc/spinifex/spinifex/handlers/ecs/bus"
-	"github.com/mulgadc/spinifex/spinifex/testutil"
-	"github.com/mulgadc/spinifex/spinifex/types"
-	"github.com/mulgadc/spinifex/spinifex/utils"
+	"github.com/mulgadc/spinifex/contracts/ec2/v1"
+	ecsv1 "github.com/mulgadc/spinifex/contracts/ecs/v1"
+	"github.com/mulgadc/spinifex/internal/testkit"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -290,9 +291,9 @@ func TestRecordTaskState_Awsvpc_ReleasesENIOnStopOnce(t *testing.T) {
 	require.NoError(t, err)
 	taskID := ContainerInstanceShortID(aws.StringValue(out.Tasks[0].TaskArn))
 
-	stop := &bus.TaskState{
+	stop := &ecsv1.TaskState{
 		AccountID: testAccountID, ClusterName: "web", InstanceID: "i-1", TaskID: taskID,
-		LastStatus: bus.TaskStatusStopped, Reason: "exited",
+		LastStatus: ecsv1.TaskStatusStopped, Reason: "exited",
 	}
 	require.NoError(t, svc.recordTaskState(context.Background(), stop))
 	require.NoError(t, svc.recordTaskState(context.Background(), stop)) // re-report STOPPED
@@ -373,11 +374,11 @@ func TestTaskToAWS_StoppedAwsvpc_ReleasedENI_ReportsDeletedAttachment(t *testing
 }
 
 func TestResolveNetworkMode(t *testing.T) {
-	assert.Equal(t, NetworkModeAwsvpc, resolveNetworkMode(&TaskDefRecord{NetworkMode: "awsvpc"}))
-	assert.Equal(t, NetworkModeAwsvpc, resolveNetworkMode(&TaskDefRecord{NetworkMode: "AWSVPC"}))
-	assert.Equal(t, NetworkModeHost, resolveNetworkMode(&TaskDefRecord{NetworkMode: "host"}))
-	assert.Equal(t, NetworkModeBridge, resolveNetworkMode(&TaskDefRecord{})) // default
-	assert.Equal(t, NetworkModeBridge, resolveNetworkMode(&TaskDefRecord{NetworkMode: "garbage"}))
+	assert.Equal(t, NetworkModeAwsvpc, resolveNetworkMode(&taskdefinition.Record{NetworkMode: "awsvpc"}))
+	assert.Equal(t, NetworkModeAwsvpc, resolveNetworkMode(&taskdefinition.Record{NetworkMode: "AWSVPC"}))
+	assert.Equal(t, NetworkModeHost, resolveNetworkMode(&taskdefinition.Record{NetworkMode: "host"}))
+	assert.Equal(t, NetworkModeBridge, resolveNetworkMode(&taskdefinition.Record{})) // default
+	assert.Equal(t, NetworkModeBridge, resolveNetworkMode(&taskdefinition.Record{NetworkMode: "garbage"}))
 }
 
 func TestParseAwsvpcConfig(t *testing.T) {
@@ -421,7 +422,7 @@ func TestNATSENIController_AllocateAttachRelease(t *testing.T) {
 		}}
 	})
 	respond(t, nc, "ec2.cmd.i-1", func(req []byte) any {
-		var cmd types.EC2InstanceCommand
+		var cmd ec2v1.EC2InstanceCommand
 		_ = json.Unmarshal(req, &cmd)
 		if cmd.Attributes.AttachENI {
 			return ec2.AttachNetworkInterfaceOutput{AttachmentId: aws.String("att-real")}
@@ -452,10 +453,10 @@ func TestNATSENIController_Release_NotFoundIsSuccess(t *testing.T) {
 	c := newNATSENIController(nc)
 
 	respond(t, nc, "ec2.cmd.i-1", func([]byte) any {
-		return json.RawMessage(utils.GenerateErrorPayload("InvalidAttachmentID.NotFound"))
+		return json.RawMessage(awserrors.GenerateErrorPayload("InvalidAttachmentID.NotFound"))
 	})
 	respond(t, nc, "ec2.DeleteNetworkInterface", func([]byte) any {
-		return json.RawMessage(utils.GenerateErrorPayload("InvalidNetworkInterfaceID.NotFound"))
+		return json.RawMessage(awserrors.GenerateErrorPayload("InvalidNetworkInterfaceID.NotFound"))
 	})
 
 	// Both legs report already-gone; Release converges without error.

@@ -17,7 +17,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"github.com/mulgadc/bluebottle/pkg/auth"
-	"github.com/mulgadc/spinifex/spinifex/awserrors"
+	"github.com/mulgadc/spinifex/spinifex/foundation/aws/errors"
 	handlers_iam "github.com/mulgadc/spinifex/spinifex/handlers/iam"
 )
 
@@ -177,7 +177,7 @@ func (s *STSServiceImpl) webIdentityKeyFunc(ctx context.Context, roleAccountID s
 		if err := s.verifyOIDCProviderRegistered(ctx, roleAccountID, issuer); err != nil {
 			return nil, err
 		}
-		jwks, err := FetchClusterJWKS(ctx, s.js, issuerAccountID, clusterName)
+		jwks, err := FetchClusterJWKS(ctx, s.jwksResolver, issuerAccountID, clusterName)
 		if err != nil {
 			return nil, fmt.Errorf("fetch JWKS: %w", err)
 		}

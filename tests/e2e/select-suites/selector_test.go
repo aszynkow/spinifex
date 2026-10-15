@@ -26,7 +26,7 @@ func testManifest() *Manifest {
 				Subscribes: []string{},
 			},
 			"spinifex_daemon": {
-				Path:            "spinifex/services/spinifex",
+				Path:            "spinifex/runtime/roles/spinifex",
 				AdditionalPaths: []string{"spinifex/daemon", "spinifex/handlers/ec2"},
 				Subscribes:      []string{"ec2.RunInstances", "elbv2.CreateLoadBalancer"},
 				Publishes:       []string{"vpc.create", "ebs.mount", "s3.*", "iam.account.created"},
@@ -128,7 +128,7 @@ func TestSelect_WorkflowChange_ForcesAll(t *testing.T) {
 }
 
 func TestSelect_NatsInfra_ForcesAll(t *testing.T) {
-	got := selectSuites(t, []string{"spinifex/services/nats/cluster.go"})
+	got := selectSuites(t, []string{"spinifex/runtime/roles/nats/cluster.go"})
 	if !got.AllSuites {
 		t.Fatalf("nats change must force all; got %+v", got)
 	}
@@ -298,7 +298,7 @@ func TestSelect_RealManifest_Smoke(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load real manifest: %v", err)
 	}
-	res := Select(m, DefaultConfig(), []string{"spinifex/vpcd/topology.go"}, nil)
+	res := Select(m, DefaultConfig(), []string{"spinifex/runtime/roles/vpcd/topology.go"}, nil)
 	if len(res.Suites) == 0 {
 		t.Fatalf("real manifest vpcd change selected no suites")
 	}

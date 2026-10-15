@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/mulgadc/spinifex/spinifex/types"
+	operatorv1 "github.com/mulgadc/spinifex/contracts/operator/v1"
 	"github.com/nats-io/nats.go"
 	toml "github.com/pelletier/go-toml/v2"
 )
@@ -87,8 +87,8 @@ func (d *Daemon) handleStorageConfig(msg *nats.Msg) string {
 		return outcomeError
 	}
 
-	resp := types.StorageConfigResponse{
-		Encoding: types.StorageEncoding{
+	resp := operatorv1.StorageConfigResponse{
+		Encoding: operatorv1.StorageEncoding{
 			DataShards:   cfg.RS.Data,
 			ParityShards: cfg.RS.Parity,
 		},
@@ -101,13 +101,13 @@ func (d *Daemon) handleStorageConfig(msg *nats.Msg) string {
 		for _, n := range h.Nodes {
 			switch n.Role {
 			case predastoreRoleMeta:
-				meta := types.StorageMetaNode{ID: n.ID, Host: h.Addr, Port: n.Port}
+				meta := operatorv1.StorageMetaNode{ID: n.ID, Host: h.Addr, Port: n.Port}
 				if singleHost {
 					meta.AdminAddr = h.adminAddr()
 				}
 				resp.MetaNodes = append(resp.MetaNodes, meta)
 			case predastoreRoleBlob:
-				resp.BlobNodes = append(resp.BlobNodes, types.StorageBlobNode{ID: n.ID, Host: h.Addr, Port: n.Port})
+				resp.BlobNodes = append(resp.BlobNodes, operatorv1.StorageBlobNode{ID: n.ID, Host: h.Addr, Port: n.Port})
 			case predastoreRoleGate:
 				// A gate serves the S3 API and holds no cluster state, so it
 				// belongs to neither table this report carries.
@@ -117,20 +117,20 @@ func (d *Daemon) handleStorageConfig(msg *nats.Msg) string {
 		}
 	}
 	if resp.MetaNodes == nil {
-		resp.MetaNodes = []types.StorageMetaNode{}
+		resp.MetaNodes = []operatorv1.StorageMetaNode{}
 	}
 	if resp.BlobNodes == nil {
-		resp.BlobNodes = []types.StorageBlobNode{}
+		resp.BlobNodes = []operatorv1.StorageBlobNode{}
 	}
 
 	for _, b := range cfg.Buckets {
-		resp.Buckets = append(resp.Buckets, types.StorageBucket{
+		resp.Buckets = append(resp.Buckets, operatorv1.StorageBucket{
 			Name:   b.Name,
 			Region: b.Region,
 		})
 	}
 	if resp.Buckets == nil {
-		resp.Buckets = []types.StorageBucket{}
+		resp.Buckets = []operatorv1.StorageBucket{}
 	}
 
 	respondWithJSON(d.node, msg, resp)

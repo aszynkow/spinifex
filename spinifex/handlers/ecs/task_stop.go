@@ -11,8 +11,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/mulgadc/spinifex/spinifex/awserrors"
-	"github.com/mulgadc/spinifex/spinifex/handlers/ecs/bus"
+	ecsv1 "github.com/mulgadc/spinifex/contracts/ecs/v1"
+	"github.com/mulgadc/spinifex/spinifex/foundation/aws/errors"
 	"github.com/nats-io/nats.go/jetstream"
 )
 
@@ -74,7 +74,7 @@ func (s *Service) StartTask(ctx context.Context, input *ecs.StartTaskInput, acco
 	if mode == NetworkModeAwsvpc && netCfg.firstSubnet() == "" {
 		return nil, errors.New(awserrors.ErrorInvalidParameterValue)
 	}
-	cpu, mem, gpu := taskDef.reservedCPU(), taskDef.reservedMemory(), taskDef.reservedGPU()
+	cpu, mem, gpu := taskDef.ReservedCPU(), taskDef.ReservedMemory(), taskDef.ReservedGPU()
 	eni := eniReservationFor(mode)
 	group := aws.StringValue(input.Group)
 	startedBy := aws.StringValue(input.StartedBy)
@@ -172,7 +172,7 @@ func (s *Service) requestStopTask(ctx context.Context, kv jetstream.KeyValue, ac
 		slog.ErrorContext(ctx, "ECS requestStopTask: persist failed", "task", task.TaskID, "err", perr)
 		return
 	}
-	sd := bus.StopDirective{TaskID: task.TaskID, Reason: reason}
+	sd := ecsv1.StopDirective{TaskID: task.TaskID, Reason: reason}
 	if perr := putJSON(ctx, kv, StopKey(task.Cluster, task.ContainerInstanceID, task.TaskID), &sd); perr != nil {
 		slog.ErrorContext(ctx, "ECS requestStopTask: post stop directive failed", "task", task.TaskID, "err", perr)
 	}

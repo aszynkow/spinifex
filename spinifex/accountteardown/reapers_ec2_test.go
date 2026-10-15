@@ -13,9 +13,9 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/mulgadc/spinifex/spinifex/awserrors"
-	"github.com/mulgadc/spinifex/spinifex/testutil"
-	"github.com/mulgadc/spinifex/spinifex/utils"
+	"github.com/mulgadc/spinifex/internal/testkit"
+	"github.com/mulgadc/spinifex/spinifex/foundation/aws/errors"
+	"github.com/mulgadc/spinifex/spinifex/foundation/messaging/nats"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,7 +71,7 @@ func (c *fakeCluster) serve(msg *nats.Msg) {
 	respond := func(data []byte) {
 		out := nats.NewMsg(msg.Reply)
 		out.Data = data
-		out.Header.Set(utils.NodeIDHeader, fakeClusterNode)
+		out.Header.Set(natsmsg.NodeIDHeader, fakeClusterNode)
 		_ = msg.RespondMsg(out)
 	}
 	if hasHandler && !isError {
@@ -81,11 +81,11 @@ func (c *fakeCluster) serve(msg *nats.Msg) {
 
 	switch {
 	case isError:
-		respond(utils.GenerateErrorPayload(code))
+		respond(awserrors.GenerateErrorPayload(code))
 	case hasReply:
 		payload, err := json.Marshal(reply)
 		if err != nil {
-			respond(utils.GenerateErrorPayload("InternalError"))
+			respond(awserrors.GenerateErrorPayload("InternalError"))
 			return
 		}
 		respond(payload)
@@ -121,7 +121,7 @@ func (c *fakeCluster) echoAsNode(t *testing.T, subject, node string) {
 	sub, err := c.nc.Subscribe(subject, func(msg *nats.Msg) {
 		out := nats.NewMsg(msg.Reply)
 		out.Data = []byte(`{}`)
-		out.Header.Set(utils.NodeIDHeader, node)
+		out.Header.Set(natsmsg.NodeIDHeader, node)
 		_ = msg.RespondMsg(out)
 	})
 	require.NoError(t, err)

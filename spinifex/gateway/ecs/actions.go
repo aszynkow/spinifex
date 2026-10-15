@@ -8,7 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/mulgadc/spinifex/spinifex/awserrors"
+	"github.com/mulgadc/spinifex/spinifex/foundation/aws/errors"
 	handlers_ecs "github.com/mulgadc/spinifex/spinifex/handlers/ecs"
 	"github.com/nats-io/nats.go"
 )
@@ -420,7 +420,7 @@ func SubmitTaskStateChange(ctx context.Context, nc *nats.Conn, accountID string,
 
 // PollAssignments drains the calling instance's assignment inbox (replaces the
 // Layer-2 assign subscribe). Internal agent↔gateway action, not an AWS SDK
-// shape; the response carries bus.Assign with an RFC3339 time, so the gateway
+// shape; the response carries ecsv1.Assign with an RFC3339 time, so the gateway
 // encodes it with encoding/json (RawJSONActions), not the jsonutil marshaler.
 func PollAssignments(ctx context.Context, nc *nats.Conn, accountID string, body []byte, passRoleCheck PassRoleChecker) (any, error) {
 	input := new(handlers_ecs.PollAssignmentsInput)

@@ -1,13 +1,14 @@
 package handlers_ecs
 
 import (
+	"github.com/mulgadc/spinifex/spinifex/domains/ecs/taskdefinition"
 	"log/slog"
 	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/mulgadc/spinifex/spinifex/handlers/ecs/bus"
+	ecsv1 "github.com/mulgadc/spinifex/contracts/ecs/v1"
 )
 
 // awsStringSlice dereferences a []*string, dropping nils/empties.
@@ -84,13 +85,13 @@ func gpuCountFromResourceRequirements(in []*ecs.ResourceRequirement) int {
 }
 
 // containerDefsFromAWS maps SDK container definitions to the persisted subset.
-func containerDefsFromAWS(in []*ecs.ContainerDefinition) []ContainerDef {
-	out := make([]ContainerDef, 0, len(in))
+func containerDefsFromAWS(in []*ecs.ContainerDefinition) []taskdefinition.Container {
+	out := make([]taskdefinition.Container, 0, len(in))
 	for _, c := range in {
 		if c == nil {
 			continue
 		}
-		def := ContainerDef{
+		def := taskdefinition.Container{
 			Name:      aws.StringValue(c.Name),
 			Image:     aws.StringValue(c.Image),
 			CPU:       int(aws.Int64Value(c.Cpu)),
@@ -112,7 +113,7 @@ func containerDefsFromAWS(in []*ecs.ContainerDefinition) []ContainerDef {
 			if p == nil {
 				continue
 			}
-			def.PortMappings = append(def.PortMappings, bus.PortMapping{
+			def.PortMappings = append(def.PortMappings, taskdefinition.PortMapping{
 				ContainerPort: int(aws.Int64Value(p.ContainerPort)),
 				HostPort:      int(aws.Int64Value(p.HostPort)),
 				Protocol:      aws.StringValue(p.Protocol),
@@ -134,13 +135,13 @@ func containerDefsFromAWS(in []*ecs.ContainerDefinition) []ContainerDef {
 		def.PseudoTerminal = c.PseudoTerminal
 		def.Interactive = c.Interactive
 		if c.SystemControls != nil {
-			def.SystemControls = []bus.SystemControl{}
+			def.SystemControls = []taskdefinition.SystemControl{}
 		}
 		for _, sc := range c.SystemControls {
 			if sc == nil {
 				continue
 			}
-			def.SystemControls = append(def.SystemControls, bus.SystemControl{
+			def.SystemControls = append(def.SystemControls, taskdefinition.SystemControl{
 				Namespace: aws.StringValue(sc.Namespace),
 				Value:     aws.StringValue(sc.Value),
 			})
@@ -163,17 +164,17 @@ func containerDefsFromAWS(in []*ecs.ContainerDefinition) []ContainerDef {
 
 // runtimePlatformFromAWS maps the SDK runtimePlatform to the persisted subset.
 // Pure echo: nothing in v1 enforces CPU architecture or OS family selection.
-func runtimePlatformFromAWS(in *ecs.RuntimePlatform) *RuntimePlatformRecord {
+func runtimePlatformFromAWS(in *ecs.RuntimePlatform) *taskdefinition.RuntimePlatform {
 	if in == nil {
 		return nil
 	}
-	return &RuntimePlatformRecord{
+	return &taskdefinition.RuntimePlatform{
 		CPUArchitecture:       aws.StringValue(in.CpuArchitecture),
 		OperatingSystemFamily: aws.StringValue(in.OperatingSystemFamily),
 	}
 }
 
-func (c ContainerDef) toAWS() *ecs.ContainerDefinition {
+func containerToAWS(c taskdefinition.Container) *ecs.ContainerDefinition {
 	cd := &ecs.ContainerDefinition{
 		Name:      aws.String(c.Name),
 		Image:     aws.String(c.Image),
@@ -264,9 +265,9 @@ func (c ContainerDef) toAWS() *ecs.ContainerDefinition {
 	return cd
 }
 
-// toAssignContainer maps a persisted container def to its bus assign payload.
-func (c ContainerDef) toAssignContainer() bus.AssignContainer {
-	return bus.AssignContainer{
+// containerToAssign maps a persisted container def to its bus assign payload.
+func containerToAssign(c taskdefinition.Container) ecsv1.AssignContainer {
+	return ecsv1.AssignContainer{
 		Name:                   c.Name,
 		Image:                  c.Image,
 		CPU:                    c.CPU,
@@ -275,17 +276,39 @@ func (c ContainerDef) toAssignContainer() bus.AssignContainer {
 		Essential:              c.Essential,
 		Command:                c.Command,
 		Environment:            c.Environment,
-		PortMappings:           c.PortMappings,
+		PortMappings:           portMappingsToAssign(c.PortMappings),
 		LogDriver:              c.LogDriver,
 		User:                   c.User,
 		ReadonlyRootFilesystem: c.ReadonlyRootFilesystem,
 		Privileged:             c.Privileged,
 		PseudoTerminal:         c.PseudoTerminal,
 		Interactive:            c.Interactive,
-		SystemControls:         c.SystemControls,
+		SystemControls:         systemControlsToAssign(c.SystemControls),
 		CapAdd:                 c.CapAdd,
 		CapDrop:                c.CapDrop,
 		StartTimeout:           c.StartTimeout,
 		StopTimeout:            c.StopTimeout,
 	}
+}
+
+func portMappingsToAssign(in []taskdefinition.PortMapping) []ecsv1.PortMapping {
+	if in == nil {
+		return nil
+	}
+	out := make([]ecsv1.PortMapping, len(in))
+	for i, p := range in {
+		out[i] = ecsv1.PortMapping{ContainerPort: p.ContainerPort, HostPort: p.HostPort, Protocol: p.Protocol, Name: p.Name}
+	}
+	return out
+}
+
+func systemControlsToAssign(in []taskdefinition.SystemControl) []ecsv1.SystemControl {
+	if in == nil {
+		return nil
+	}
+	out := make([]ecsv1.SystemControl, len(in))
+	for i, sc := range in {
+		out[i] = ecsv1.SystemControl{Namespace: sc.Namespace, Value: sc.Value}
+	}
+	return out
 }

@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mulgadc/spinifex/spinifex/network/external"
-	"github.com/mulgadc/spinifex/spinifex/network/ovn"
-	"github.com/mulgadc/spinifex/spinifex/network/ovn/ovntest"
-	"github.com/mulgadc/spinifex/spinifex/network/policy"
-	"github.com/mulgadc/spinifex/spinifex/network/subscribers"
-	"github.com/mulgadc/spinifex/spinifex/network/topology"
+	"github.com/mulgadc/spinifex/spinifex/domains/network/external"
+	"github.com/mulgadc/spinifex/spinifex/domains/network/ovn"
+	"github.com/mulgadc/spinifex/spinifex/domains/network/ovn/ovntest"
+	"github.com/mulgadc/spinifex/spinifex/domains/network/policy"
+	"github.com/mulgadc/spinifex/spinifex/domains/network/subscribers"
+	"github.com/mulgadc/spinifex/spinifex/domains/network/topology"
 )
 
 // connectTimeout bounds the initial OVSDB handshake. The server is in-process
@@ -43,7 +43,7 @@ type Fixture struct {
 // it. The server and client are torn down via t.Cleanup.
 //
 // The managers are the production types a live vpcd constructs
-// (spinifex/vpcd/vpcd.go), minus the host-dependent options: NAT runs in
+// (spinifex/runtime/roles/vpcd/vpcd.go), minus the host-dependent options: NAT runs in
 // distributed mode with no chassis list, IGW allocates link-local addresses
 // rather than drawing from a configured pool, and nothing seeds a nexthop MAC
 // or waits on an OpenFlow barrier. Those all reach for the host datapath,

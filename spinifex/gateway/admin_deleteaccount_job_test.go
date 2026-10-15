@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/mulgadc/spinifex/internal/testkit"
 	"github.com/mulgadc/spinifex/spinifex/accountteardown"
-	"github.com/mulgadc/spinifex/spinifex/awserrors"
+	"github.com/mulgadc/spinifex/spinifex/foundation/aws/errors"
+	"github.com/mulgadc/spinifex/spinifex/foundation/messaging/nats"
 	handlers_iam "github.com/mulgadc/spinifex/spinifex/handlers/iam"
-	"github.com/mulgadc/spinifex/spinifex/objectstore"
-	"github.com/mulgadc/spinifex/spinifex/testutil"
-	"github.com/mulgadc/spinifex/spinifex/utils"
+	"github.com/mulgadc/spinifex/spinifex/providers/objectstore"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
@@ -50,7 +50,7 @@ func newDeleteAccountGateway(t *testing.T) *GatewayConfig {
 		sub, err := nc.Subscribe(subject, func(msg *nats.Msg) {
 			reply := nats.NewMsg(msg.Reply)
 			reply.Data = []byte(`{}`)
-			reply.Header.Set(utils.NodeIDHeader, "node-1")
+			reply.Header.Set(natsmsg.NodeIDHeader, "node-1")
 			_ = msg.RespondMsg(reply)
 		})
 		require.NoError(t, err)

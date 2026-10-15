@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mulgadc/spinifex/spinifex/awserrors"
-	"github.com/mulgadc/spinifex/spinifex/testutil"
-	"github.com/mulgadc/spinifex/spinifex/utils"
+	"github.com/mulgadc/spinifex/internal/testkit"
+	"github.com/mulgadc/spinifex/spinifex/foundation/aws/errors"
+	"github.com/mulgadc/spinifex/spinifex/foundation/messaging/nats"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +28,7 @@ func TestDeleteVolumeAction_MissingConfiguredNodeIsRetryableAndDeletesNothing(t 
 			out := nats.NewMsg(msg.Reply)
 			out.Data = []byte(`{}`)
 			if node != "" {
-				out.Header.Set(utils.NodeIDHeader, node)
+				out.Header.Set(natsmsg.NodeIDHeader, node)
 			}
 			_ = msg.RespondMsg(out)
 		})

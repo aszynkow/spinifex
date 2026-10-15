@@ -12,7 +12,7 @@ import (
 	"time"
 
 	pds "github.com/mulgadc/predastore"
-	"github.com/mulgadc/spinifex/spinifex/types"
+	operatorv1 "github.com/mulgadc/spinifex/contracts/operator/v1"
 	"github.com/nats-io/nats.go"
 )
 
@@ -33,10 +33,10 @@ type MetaNodeStatus struct {
 
 // StorageStatusOutput is the response for GetStorageStatus.
 type StorageStatusOutput struct {
-	Encoding  StorageEncodingOutput   `json:"encoding"`
-	MetaNodes []MetaNodeStatus        `json:"meta_nodes"`
-	BlobNodes []types.StorageBlobNode `json:"blob_nodes"`
-	Buckets   []types.StorageBucket   `json:"buckets"`
+	Encoding  StorageEncodingOutput        `json:"encoding"`
+	MetaNodes []MetaNodeStatus             `json:"meta_nodes"`
+	BlobNodes []operatorv1.StorageBlobNode `json:"blob_nodes"`
+	Buckets   []operatorv1.StorageBucket   `json:"buckets"`
 }
 
 // StorageEncodingOutput adds the type label to the encoding config.
@@ -58,12 +58,12 @@ const metaNodeQueryTimeout = 2 * time.Second
 // trusted. A single-host cluster opens no QUIC socket, so its nodes are read
 // from their host's /readyz instead.
 func GetStorageStatus(nc *nats.Conn, rootCAs *x509.CertPool) (*StorageStatusOutput, error) {
-	msg, err := nc.Request("spinifex.storage.config", []byte("{}"), 3*time.Second)
+	msg, err := nc.Request(operatorv1.StorageConfigSubject, []byte("{}"), 3*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("storage config request: %w", err)
 	}
 
-	var cfg types.StorageConfigResponse
+	var cfg operatorv1.StorageConfigResponse
 	if err := json.Unmarshal(msg.Data, &cfg); err != nil {
 		return nil, fmt.Errorf("parse storage config: %w", err)
 	}
@@ -80,7 +80,7 @@ func GetStorageStatus(nc *nats.Conn, rootCAs *x509.CertPool) (*StorageStatusOutp
 			Port: meta.Port,
 		}
 		wg.Add(1)
-		go func(idx int, meta types.StorageMetaNode) {
+		go func(idx int, meta operatorv1.StorageMetaNode) {
 			defer wg.Done()
 			if meta.AdminAddr != "" {
 				queryMetaNodeReadyz(ctx, &metaStatuses[idx], meta.AdminAddr)

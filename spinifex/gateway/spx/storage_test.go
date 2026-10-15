@@ -9,7 +9,7 @@ import (
 	"time"
 
 	pds "github.com/mulgadc/predastore"
-	"github.com/mulgadc/spinifex/spinifex/types"
+	operatorv1 "github.com/mulgadc/spinifex/contracts/operator/v1"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,17 +19,17 @@ func TestGetStorageStatus_Success(t *testing.T) {
 	_, nc := startEmbeddedNATS(t)
 
 	// Mock daemon returning storage config
-	sub, err := nc.Subscribe("spinifex.storage.config", func(msg *nats.Msg) {
-		resp := types.StorageConfigResponse{
-			Encoding: types.StorageEncoding{DataShards: 2, ParityShards: 1},
-			MetaNodes: []types.StorageMetaNode{
+	sub, err := nc.Subscribe(operatorv1.StorageConfigSubject, func(msg *nats.Msg) {
+		resp := operatorv1.StorageConfigResponse{
+			Encoding: operatorv1.StorageEncoding{DataShards: 2, ParityShards: 1},
+			MetaNodes: []operatorv1.StorageMetaNode{
 				{ID: 1, Host: "127.0.0.1", Port: 1}, // nothing listens on port 1
 			},
-			BlobNodes: []types.StorageBlobNode{
+			BlobNodes: []operatorv1.StorageBlobNode{
 				{ID: 1, Host: "0.0.0.0", Port: 9991},
 				{ID: 2, Host: "0.0.0.0", Port: 9992},
 			},
-			Buckets: []types.StorageBucket{
+			Buckets: []operatorv1.StorageBucket{
 				{Name: "predastore", Region: "ap-southeast-2"},
 			},
 		}
@@ -125,7 +125,7 @@ func readyzServer(t *testing.T, code int, body string) string {
 
 // serveStorageConfig answers spinifex.storage.config with resp, as the daemon
 // would, and returns the gateway's report.
-func serveStorageConfig(t *testing.T, resp types.StorageConfigResponse) *StorageStatusOutput {
+func serveStorageConfig(t *testing.T, resp operatorv1.StorageConfigResponse) *StorageStatusOutput {
 	t.Helper()
 	_, nc := startEmbeddedNATS(t)
 	sub, err := nc.Subscribe("spinifex.storage.config", func(msg *nats.Msg) {
@@ -144,9 +144,9 @@ func serveStorageConfig(t *testing.T, resp types.StorageConfigResponse) *Storage
 
 // singleHostMeta is the default install's meta node: nothing listens on its
 // QUIC port, so its health can only come from the admin listener at addr.
-func singleHostMeta(addr string) types.StorageConfigResponse {
-	return types.StorageConfigResponse{
-		MetaNodes: []types.StorageMetaNode{{ID: 3, Host: "127.0.0.1", Port: 1, AdminAddr: addr}},
+func singleHostMeta(addr string) operatorv1.StorageConfigResponse {
+	return operatorv1.StorageConfigResponse{
+		MetaNodes: []operatorv1.StorageMetaNode{{ID: 3, Host: "127.0.0.1", Port: 1, AdminAddr: addr}},
 	}
 }
 

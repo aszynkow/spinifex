@@ -2,12 +2,13 @@ package handlers_ecs
 
 import (
 	"context"
+	"github.com/mulgadc/spinifex/spinifex/domains/ecs/taskdefinition"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/mulgadc/spinifex/spinifex/handlers/ecs/bus"
+	ecsv1 "github.com/mulgadc/spinifex/contracts/ecs/v1"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,7 +34,7 @@ func driveRunning(t *testing.T, svc *Service, kv jetstream.KeyValue, cluster, na
 		if tasks[i].LastStatus != TaskStatusPending {
 			continue
 		}
-		require.NoError(t, svc.recordTaskState(context.Background(), &bus.TaskState{
+		require.NoError(t, svc.recordTaskState(context.Background(), &ecsv1.TaskState{
 			AccountID: testAccountID, ClusterName: cluster, TaskID: tasks[i].TaskID,
 			LastStatus: TaskStatusRunning,
 		}))
@@ -50,7 +51,7 @@ func failPending(t *testing.T, svc *Service, kv jetstream.KeyValue, cluster, nam
 		if tasks[i].LastStatus != TaskStatusPending {
 			continue
 		}
-		require.NoError(t, svc.recordTaskState(context.Background(), &bus.TaskState{
+		require.NoError(t, svc.recordTaskState(context.Background(), &ecsv1.TaskState{
 			AccountID: testAccountID, ClusterName: cluster, TaskID: tasks[i].TaskID,
 			LastStatus: TaskStatusStopped, Reason: "image pull failed",
 		}))
@@ -324,7 +325,7 @@ func TestDeployment_LegacyServiceSynthesizesPrimary(t *testing.T) {
 	rec := &ServiceRecord{
 		Name: "legacy", ARN: ServiceARN(testRegion, testAccountID, "web", "legacy"),
 		Cluster: "web", TaskDefFamily: "app", TaskDefRevision: 1,
-		TaskDefARN:   TaskDefARN(testRegion, testAccountID, "app", 1),
+		TaskDefARN:   taskdefinition.ARN(testRegion, testAccountID, "app", 1),
 		DesiredCount: 1, Status: ServiceStatusActive,
 		SchedulingStrategy: SchedulingStrategyReplica, DeploymentID: "legacy-dep",
 	}
