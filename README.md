@@ -68,7 +68,8 @@ The platform serves **392 AWS API operations** across the services below. See ex
 | **ECR** | Container registry | Predastore, deduplicated per account | Available |
 | **ECS** | Container service | Spinifex instances | Available |
 | **RDS** | Databases | PostgreSQL and MariaDB, with automated backups | Available |
-| **Bedrock** | AI deployment | | Q4 2026 |
+| **Bedrock** | AI deployment | vLLM for text generation and Hugging Face TEI for embeddings and reranking | Q4 2026 |
+| **Lambda** | Serverless functions | | Q1 2027 |
 
 Roadmap services ship under the same AWS API surface, so code written for AWS today works the moment they land. [Track what's shipped in the release notes](https://github.com/mulgadc/spinifex/releases).
 
