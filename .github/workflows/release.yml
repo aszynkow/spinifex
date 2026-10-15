@@ -55,6 +55,7 @@ jobs:
         uses: actions/setup-go@v7.0.0
         with:
           go-version-file: spinifex/go.mod
+          cache: false
 
       - name: Build microVM artifacts (lb-agent + kernel + initramfs)
         run: cd spinifex && make build-microvm-image

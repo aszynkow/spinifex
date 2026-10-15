@@ -76,6 +76,7 @@ jobs:
         uses: actions/setup-go@v7.0.0
         with:
           go-version-file: spinifex/go.mod
+          cache: false
 
       # The tag carries the describe string so the commit is recoverable from the
       # version alone, and the -dev suffix is what release.yml's own convention
