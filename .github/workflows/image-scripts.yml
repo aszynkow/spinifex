@@ -36,6 +36,9 @@ jobs:
 
   eks_mkosi_image:
     name: Build mkosi EKS image
+    # A fork PR's code must never run on a persistent self-hosted runner: it
+    # shares disk, caches and credentials with the release jobs.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, ci-single]
     concurrency:
       group: eks-mkosi-image-${{ github.ref }}
