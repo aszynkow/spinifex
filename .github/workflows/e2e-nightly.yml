@@ -795,7 +795,8 @@ jobs:
       - name: Install go-junit-report
         if: always()
         run: |
-          go install github.com/jstemmer/go-junit-report/v2@latest
+          # Version from go.mod's tool directive, checked against go.sum.
+          GOWORK=off go -C spinifex install github.com/jstemmer/go-junit-report/v2
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
 
       - name: Convert test logs to JUnit XML

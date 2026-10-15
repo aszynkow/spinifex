@@ -151,7 +151,8 @@ jobs:
           fi
 
       - name: Install go-junit-report on runner
-        run: go install github.com/jstemmer/go-junit-report/v2@latest
+        # Version from go.mod's tool directive, checked against go.sum.
+        run: GOWORK=off go install github.com/jstemmer/go-junit-report/v2
 
       # The eks suite's CreateCluster boots a control-plane VM from the eks-node
       # AMI. Built here because libguestfs needs source and network, which the

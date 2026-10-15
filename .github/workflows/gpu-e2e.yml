@@ -187,7 +187,8 @@ jobs:
       - name: Install go-junit-report on runner
         if: steps.gate.outputs.paused != 'true'
         run: |
-          go install github.com/jstemmer/go-junit-report/v2@latest
+          # Version from go.mod's tool directive, checked against go.sum.
+          GOWORK=off go install github.com/jstemmer/go-junit-report/v2
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
 
       - name: Ship GPU e2e test binary to wattle

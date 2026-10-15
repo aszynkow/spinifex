@@ -334,7 +334,8 @@ jobs:
 
       - name: Install go-junit-report
         run: |
-          go install github.com/jstemmer/go-junit-report/v2@latest
+          # Version from go.mod's tool directive, checked against go.sum.
+          GOWORK=off go -C spinifex install github.com/jstemmer/go-junit-report/v2
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
 
       - name: Run ${{ matrix.suite }}
@@ -748,7 +749,8 @@ jobs:
 
       - name: Install go-junit-report
         run: |
-          go install github.com/jstemmer/go-junit-report/v2@latest
+          # Version from go.mod's tool directive, checked against go.sum.
+          GOWORK=off go -C spinifex install github.com/jstemmer/go-junit-report/v2
           echo "$HOME/go/bin" >> "$GITHUB_PATH"
 
       - name: Run ${{ matrix.suite }}
